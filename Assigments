@@ -1,0 +1,152 @@
+Q1:- Write a common use-case, where you will use a daemon set instead of replica set.
+Daemon Sets we are using where we required to configure some prerequiste configurations at the time of the creation of the nodes, For example we want to run logger should run each and every node of the cluster in that case we will run logger as a daemon sets in our enviorements.
+While as with the help of Replica sets, Kubernetes gives us the gurantee to run (number which we have given in RS) pods at every given point of time. For example we are runinng one web app service where we have given RS as 2 in the deployment so in that case Kubernetes gives us assurity that any point of given time 2 pods of our webapp application is running int he cluster.
+
+Q2:- Suppose you have deployed your application using a deployment controller. Assume the initial number of replicas is one. Write the steps needed to update a container's image using deployment, making sure that there is zero downtime.
+kubectl edit deployment 
+and then change the image 
+
+Q3:-You have deployed an application, that is listening at port 8000. You used a replica-set to deploy it and created a NodePort service to make it accessible. But when you test it, somehow the application is not reachable at the port. Write down your approach and sequentially all the steps that you will take to find out the issue.
+1:- Check for the nodeport in the Service you have given.
+2:- Check whether correct node port you are giving on the time you are trying to access the same.
+3:- If still issue persists check whether your node port service is properlly created or not 
+4:- look out for some Systax issues 
+
+Q4:- Voting App Demo
+
+[root@ip-172-31-2-73 k8s-specifications]# kubectl apply -f .
+deployment.apps/db created
+service/db unchanged
+deployment.apps/redis created
+service/redis unchanged
+deployment.apps/result created
+service/result unchanged
+deployment.apps/vote created
+service/vote unchanged
+deployment.apps/worker created
+[root@ip-172-31-2-73 k8s-specifications]# kubectl get all
+NAME                          READY   STATUS              RESTARTS   AGE
+pod/db-b54cd94f4-sl97d        0/1     ContainerCreating   0          8s
+pod/redis-868d64d78-w6jcm     0/1     ContainerCreating   0          8s
+pod/result-5d57b59f4b-7zwwk   0/1     ContainerCreating   0          8s
+pod/vote-94849dc97-856xq      0/1     ContainerCreating   0          8s
+pod/worker-dd46d7584-g4p68    0/1     ContainerCreating   0          8s
+
+NAME                 TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+service/db           ClusterIP   10.111.238.255   <none>        5432/TCP         3d14h
+service/kubernetes   ClusterIP   10.96.0.1        <none>        443/TCP          9d
+service/redis        ClusterIP   10.109.246.89    <none>        6379/TCP         3d14h
+service/result       NodePort    10.107.46.211    <none>        5001:31001/TCP   3d14h
+service/vote         NodePort    10.100.241.232   <none>        5000:31000/TCP   3d14h
+
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/db       0/1     1            0           9s
+deployment.apps/redis    0/1     1            0           8s
+deployment.apps/result   0/1     1            0           8s
+deployment.apps/vote     0/1     1            0           8s
+deployment.apps/worker   0/1     1            0           8s
+
+NAME                                DESIRED   CURRENT   READY   AGE
+replicaset.apps/db-b54cd94f4        1         1         0       9s
+replicaset.apps/redis-868d64d78     1         1         0       8s
+replicaset.apps/result-5d57b59f4b   1         1         0       8s
+replicaset.apps/vote-94849dc97      1         1         0       8s
+replicaset.apps/worker-dd46d7584    1         1         0       8s
+[root@ip-172-31-2-73 k8s-specifications]#
+
+1:- While Delete Vote Pod 
+[root@ip-172-31-2-73 k8s-specifications]# kubectl delete po vote-94849dc97-856xq
+pod "vote-94849dc97-856xq" deleted
+[root@ip-172-31-2-73 k8s-specifications]# kubectl get po
+NAME                      READY   STATUS    RESTARTS   AGE
+db-b54cd94f4-sl97d        1/1     Running   0          5m22s
+redis-868d64d78-w6jcm     1/1     Running   0          5m22s
+result-5d57b59f4b-7zwwk   1/1     Running   0          5m22s
+vote-94849dc97-rgw9d      1/1     Running   0          68s
+worker-dd46d7584-g4p68    1/1     Running   0          5m22s
+[root@ip-172-31-2-73 k8s-specifications]#
+
+Observation:- 
+  New container get created, becuase we have given RS as 1 in our deployment
+	Still voting app is accessible
+	No problem in no. of votes
+  Whole Application is working fine 
+  
+2:- delete worker pod 
+	
+  [root@ip-172-31-2-73 k8s-specifications]# kubectl get po
+NAME                      READY   STATUS    RESTARTS   AGE
+db-b54cd94f4-sl97d        1/1     Running   0          10m
+redis-868d64d78-w6jcm     1/1     Running   0          10m
+result-5d57b59f4b-7zwwk   1/1     Running   0          10m
+vote-94849dc97-rgw9d      1/1     Running   0          5m58s
+worker-dd46d7584-g4p68    1/1     Running   0          10m
+[root@ip-172-31-2-73 k8s-specifications]# kubectl delete po worker-dd46d7584-g4p68
+pod "worker-dd46d7584-g4p68" deleted
+[root@ip-172-31-2-73 k8s-specifications]# kubectl get po | grep worker
+worker-dd46d7584-zrfvv    1/1     Running   0          63s
+[root@ip-172-31-2-73 k8s-specifications]# kubectl logs worker-dd46d7584-zrfvv
+Connected to db
+Found redis at 10.109.246.89
+Connecting to redis
+
+Observation:- 
+Voting app is accessible 
+Number of Votes are also correct 
+worker pod able to pull data from DB
+Application is working fine
+As new Worker pod has created so we lost the old logs
+
+3:- Delete db pod
+[root@ip-172-31-2-73 k8s-specifications]# kubectl delete po db-b54cd94f4-sl97d
+pod "db-b54cd94f4-sl97d" deleted
+[root@ip-172-31-2-73 k8s-specifications]# kubectl get po | grep db
+db-b54cd94f4-xm54b        1/1     Running   0          93s
+[root@ip-172-31-2-73 k8s-specifications]# kubectl logs db-b54cd94f4-xm54bx
+Error from server (NotFound): pods "db-b54cd94f4-xm54bx" not found
+[root@ip-172-31-2-73 k8s-specifications]# kubectl logs result-5d57b59f4b-7zwwk
+Fri, 09 Dec 2022 07:48:36 GMT body-parser deprecated bodyParser: use individual json/urlencoded middlewares at server.js:67:9
+Fri, 09 Dec 2022 07:48:37 GMT body-parser deprecated undefined extended: provide extended option at ../node_modules/body-parser/index.js:105:29
+App running on port 80
+Waiting for db
+Connected to db
+Error performing query: Error: This socket has been ended by the other party
+[root@ip-172-31-2-73 k8s-specifications]#
+
+Observations:-
+
+Impact on Result pod, data got deleted 
+db pod able to connect and do the insertion of votes
+connection to result app is ended 
+Socket has not established
+impact seen on Result pod
+
+4:- To Start the result app 
+        Socket connection should be established with Result Pod 
+				For the same we need to restart the Result pod because Socket connection imbibe in the POD creation yaml of the same.
+        [root@ip-172-31-2-73 k8s-specifications]# kubectl get po
+kubNAM                      READY   STATUS    RESTARTS   AGE
+db-b54cd94f4-xm54b        1/1     Running   0          8m9s
+redis-868d64d78-w6jcm     1/1     Running   0          23m
+result-5d57b59f4b-7zwwk   1/1     Running   0          23m
+vote-94849dc97-rgw9d      1/1     Running   0          19m
+worker-dd46d7584-zrfvv    1/1     Running   1          13m
+[root@ip-172-31-2-73 k8s-specifications]# kubectl delete po result-5d57b59f4b-7zwwk
+pod "result-5d57b59f4b-7zwwk" deleted
+[root@ip-172-31-2-73 k8s-specifications]# kubectl get po | grep result-5d57b59f4b-7zwwk
+[root@ip-172-31-2-73 k8s-specifications]# kubectl get po | grep result
+result-5d57b59f4b-mw7bd   1/1     Running   0          67s
+[root@ip-172-31-2-73 k8s-specifications]# kubectl logs result-5d57b59f4b-mw7bd
+Fri, 09 Dec 2022 08:12:23 GMT body-parser deprecated bodyParser: use individual json/urlencoded middlewares at server.js:67:9
+Fri, 09 Dec 2022 08:12:23 GMT body-parser deprecated undefined extended: provide extended option at ../node_modules/body-parser/index.js:105:29
+App running on port 80
+Connected to db
+[root@ip-172-31-2-73 k8s-specifications]#
+
+Observation:- Now Result app is working Fine.
+
+Voting App IP = http://18.140.235.18:31000/
+Result IP = http://18.140.235.18:31001/
+
+
+
